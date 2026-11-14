@@ -41,8 +41,12 @@ on:
         value: ${{ jobs.flavors_matrix.outputs.matrix }}
       version:
         value: ${{ jobs.requirements.outputs.version }}
+      # Fork note (kvm-capi fork): this fork never builds bare/gym flavors
+      # (flavors.yaml is pruned to kvm-capi), so there is no bare_flavors_matrix
+      # job anymore. Expose a static empty matrix to keep dormant consumers
+      # (e.g. manual_tests.yml) compatible.
       bare_flavors_matrix:
-        value: ${{ jobs.bare_flavors_matrix.outputs.matrix }}
+        value: '{"include":[]}'
 jobs:
   requirements:
     name: Prepare build requirements
@@ -86,27 +90,15 @@ jobs:
       prefix: ${{ inputs.prefix }}
     permissions:
       actions: write
-  bare_flavors_matrix:
-    name: Generate bare flavors matrix to build
-    uses: ./.github/workflows/build_flavors_matrix.yml
-    with:
-      flags: ${{ inputs.flavors_parse_params_test_bare }}
-  bare_flavors:
-    needs: [bare_flavors_matrix, requirements]
-    name: Build bare flavors
-    strategy:
-      matrix: ${{ fromJson(needs.bare_flavors_matrix.outputs.matrix) }}
-      fail-fast: ${{ inputs.fail_fast }}
-    with:
-      arch: ${{ matrix.arch }}
-      cname: ${{ matrix.cname }}
-      commit_id: ${{ needs.requirements.outputs.commit_id }}
-      version: ${{ needs.requirements.outputs.version }}
-      prefix: ${{ inputs.prefix }}
-    uses: ./.github/workflows/build_bare_flavor.yml
-    secrets: inherit
-    permissions:
-      actions: write
+  # Fork note (kvm-capi fork): upstream also generates a bare flavors matrix
+  # (bare_flavors_matrix job) and builds bare flavors from it (bare_flavors
+  # job). This fork has no bare/gym flavors, and the always-empty matrix makes
+  # the bare_flavors job fail strategy evaluation ("matrix must define at
+  # least one vector"), which fails the whole run and blocks publishing —
+  # hence both jobs are removed. The workflow_call output bare_flavors_matrix
+  # above returns a static empty matrix instead.
+  # The 'flavors_parse_params_test_bare' input is kept (ignored) for interface
+  # compatibility with manual_tests.yml.
   test_build:
     needs: requirements
     name: Build and cache test distribution
