@@ -35,9 +35,25 @@ jobs:
 
       - name: List downloaded artifacts
         run: |
+          # Fork note (kvm-capi fork): if no test job produced artifacts —
+          # e.g. all of them were skipped or failed before uploading results
+          # (their upload steps use if-no-files-found: ignore) — the download
+          # step above (continue-on-error: true) never creates test-artifacts/
+          # and a bare `find` would crash here with no useful error message.
+          if [ ! -d test-artifacts ]; then
+            mkdir -p test-artifacts
+          fi
           echo "Downloaded test artifacts:"
           find test-artifacts -name "*.test.xml" -type f
-          echo "Total XML files found: $(find test-artifacts -name "*.test.xml" -type f | wc -l)"
+          total=$(find test-artifacts -name "*.test.xml" -type f | wc -l)
+          echo "Total XML files found: $total"
+          if [[ "$total" -eq 0 ]]; then
+            echo "::error::No test results were produced at all. Check the run graph:"
+            echo "::error::were the 'Test chroot flavors' / 'Test QEMU flavors' jobs"
+            echo "::error::skipped (determine step log shows 'disabled (0 flavors)')"
+            echo "::error::or did they fail before uploading test artifacts?"
+            exit 1
+          fi
 
       - name: Set variables
         id: vars

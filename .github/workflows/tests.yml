@@ -156,6 +156,16 @@ jobs:
             // hence we set a minimal skip flavor matrix and evaluate it in each test_flavor_* workflow.
             const skipFlavorMatrix = '{"include":[{"arch":"amd64","flavor":"skip"}]}';
 
+            // Fork note (kvm-capi fork): an empty flavors_matrix means the
+            // build workflow reported no buildable flavors at all — that is
+            // always a wiring bug, so fail loudly instead of silently
+            // disabling every test type (which would later surface as an
+            // empty test report).
+            const flavorsMatrix = ${{ inputs.flavors_matrix || 'null' }};
+            if (gitHubLib.isMatrixEmpty(flavorsMatrix || { include: [] })) {
+              core.setFailed("inputs.flavors_matrix is empty — the build workflow reported no buildable flavors. Check the 'flavors matrix' job output of the build workflow.");
+            }
+
             // Process all test types, but only enable requested ones
             for (const t of testDefinitions) {
               if (!testsEnvsEnabled.includes(t.key)) {
