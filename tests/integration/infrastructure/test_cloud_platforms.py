@@ -136,7 +136,13 @@ def test_cloud_kernel_postrm_script_exists(file: File):
 
 
 @pytest.mark.testcov(["GL-TESTCOV-cloud-config-repart-root"])
-@pytest.mark.feature("cloud")
+# Fork note (kvm-capi fork): flavors that combine `cloud` with `_pxe`
+# (e.g. kvm-capi: kvm pulls in `cloud`, capi pulls in `_pxe`) intentionally
+# ship WITHOUT /etc/repart.d/root.conf — _pxe excludes it so the systemd-repart
+# root growth cannot conflict with PXE/ignition-provisioned disk layouts
+# (see features/_pxe/file.exclude, upstream commit "disable repart for pxe
+# booting"). Restrict the expectation accordingly.
+@pytest.mark.feature("cloud and not _pxe")
 def test_cloud_repart_root_config_exists(file: File):
     """Test that cloud repart root configuration exists"""
     assert file.is_regular_file("/etc/repart.d/root.conf")
