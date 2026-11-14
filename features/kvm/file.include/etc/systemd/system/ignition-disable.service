@@ -22,11 +22,14 @@ Type=oneshot
 EnvironmentFile=-/run/ignition.env
 # Fork note (kvm-capi fork): this unit rewrites the syslinux loader entries
 # under /efi/loader/entries to drop the ignition.firstboot kernel cmdline after
-# provisioning. In a PXE/live boot (gl.live=1, gl.url=... — the boot path the
-# _pxe flag/capi flavors on kvm use) there is no /efi, so the glob failed, the
-# unit failed and OnFailure=emergency.target halted the boot. No-op when there
-# is nothing to rewrite; the cmdline on a live system is ephemeral anyway.
-ExecStart=/bin/bash -c "if ! compgen -G '/efi/loader/entries/*.conf' > /dev/null; then exit 0; fi; set -e; source /etc/kernel/cmdline.d/50-ignition.cfg; for c in /efi/loader/entries/*.conf; do cp $c ${c}.old; sed \"s|$CMDLINE_LINUX||\" -i ${c}.old; mv ${c}.old $c; done; /usr/local/sbin/update-syslinux; rm -f /etc/kernel/cmdline.d/50-ignition.cfg"
+# provisioning. That is only meaningful when this very disk was booted. In a
+# PXE/live boot (gl.live=1, gl.url=... — the boot path _pxe/capi flavors on kvm
+# use, e.g. for CAPI provisioning) the kernel cmdline is ephemeral and not read
+# from the disk's syslinux config, so there is nothing to rewrite. Note: /efi
+# may still be present (an attached disk's ESP gets auto-mounted), and running
+# update-syslinux in a live environment fails — which previously made this unit
+# fail and OnFailure=emergency.target halted the boot.
+ExecStart=/bin/bash -c "if grep -q 'gl.live=1' /proc/cmdline; then exit 0; fi; if ! compgen -G '/efi/loader/entries/*.conf' > /dev/null; then exit 0; fi; set -e; source /etc/kernel/cmdline.d/50-ignition.cfg; for c in /efi/loader/entries/*.conf; do cp $c ${c}.old; sed \"s|$CMDLINE_LINUX||\" -i ${c}.old; mv ${c}.old $c; done; /usr/local/sbin/update-syslinux; rm -f /etc/kernel/cmdline.d/50-ignition.cfg"
 RemainAfterExit=yes
 
 [Install]
