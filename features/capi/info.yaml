@@ -4,7 +4,16 @@ features:
   include:
     - server
     - khost 
-    - _pxe
+    # Fork note (kvm-capi fork): upstream capi also includes _pxe for
+    # baremetal provisioning. Our fork only builds kvm-capi, whose CAPI
+    # machines boot from disk images (copied onto ceph volumes and attached
+    # via libvirt/rbd), never via PXE/live boot. Dropping _pxe:
+    #   - stops building the (unused) .pxe.tar.gz artifacts
+    #   - keeps /etc/repart.d/root.conf (excluded by _pxe), so systemd-repart
+    #     grows the root fs on first boot onto the larger attached volume
+    #   - makes the QEMU tests boot the disk image, i.e. the production path
+    # Ignition-based first-boot provisioning still works (kvm provides
+    # _ignite/_fwcfg; userdata comes via QEMU fw_cfg).
   exclude:
     - _selinux
     - firewall
