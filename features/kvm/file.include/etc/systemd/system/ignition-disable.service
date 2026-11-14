@@ -16,8 +16,17 @@ OnFailureJobMode=isolate
 
 [Service]
 Type=oneshot
-EnvironmentFile=/run/ignition.env
-ExecStart=/bin/bash -c "set -e; source /etc/kernel/cmdline.d/50-ignition.cfg; for c in /efi/loader/entries/*.conf; do cp $c ${c}.old; sed \"s|$CMDLINE_LINUX||\" -i ${c}.old; mv ${c}.old $c; done; /usr/local/sbin/update-syslinux; rm -f /etc/kernel/cmdline.d/50-ignition.cfg"
+# Fork note (kvm-capi fork): /run/ignition.env is not guaranteed to exist in
+# every provisioning path (e.g. ignition-legacy in the _pxe live environment);
+# treat it as optional instead of failing the unit.
+EnvironmentFile=-/run/ignition.env
+# Fork note (kvm-capi fork): this unit rewrites the syslinux loader entries
+# under /efi/loader/entries to drop the ignition.firstboot kernel cmdline after
+# provisioning. In a PXE/live boot (gl.live=1, gl.url=... — the boot path the
+# _pxe flag/capi flavors on kvm use) there is no /efi, so the glob failed, the
+# unit failed and OnFailure=emergency.target halted the boot. No-op when there
+# is nothing to rewrite; the cmdline on a live system is ephemeral anyway.
+ExecStart=/bin/bash -c "if ! compgen -G '/efi/loader/entries/*.conf' > /dev/null; then exit 0; fi; set -e; source /etc/kernel/cmdline.d/50-ignition.cfg; for c in /efi/loader/entries/*.conf; do cp $c ${c}.old; sed \"s|$CMDLINE_LINUX||\" -i ${c}.old; mv ${c}.old $c; done; /usr/local/sbin/update-syslinux; rm -f /etc/kernel/cmdline.d/50-ignition.cfg"
 RemainAfterExit=yes
 
 [Install]
