@@ -2,6 +2,8 @@
 # Builds and tests kvm-capi on every push to main and on PRs. Additionally,
 # on pushes to main the built images are published to the rolling
 # 'dev-latest' GitHub prerelease (see publish_github_release job below).
+# The workflow can also be started manually (workflow_dispatch); manual runs
+# always build and test (detect_changes is bypassed) and optionally publish.
 # PRs never publish. No external secrets are required.
 name: dev
 concurrency:
@@ -19,6 +21,12 @@ on:
       - 'features/*/info.yaml'
       - 'CONTRIBUTING.md'
       - 'SECURITY.md'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish build results to the dev-latest GitHub release'
+        type: boolean
+        default: true
   pull_request:
     # No paths-ignore on pull_request — workflow must run on every PR so that
     # build_and_test_gate always produces a check result for branch protection.
@@ -28,11 +36,12 @@ jobs:
     name: Detect code path changes
     runs-on: ubuntu-24.04
     outputs:
-      code: ${{ steps.filter.outputs.code }}
+      code: ${{ steps.filter.outputs.code || steps.manual.outputs.code }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # pin@v7.0.1
       - name: Check for code path changes
         id: filter
+        if: ${{ github.event_name != 'workflow_dispatch' }}
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # pin@v4.0.3
         with:
           filters: |
@@ -44,6 +53,10 @@ jobs:
               - '!features/*/info.yaml'
               - '!CONTRIBUTING.md'
               - '!SECURITY.md'
+      - name: Bypass change detection on manual dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: manual
+        run: echo "code=true" >> "$GITHUB_OUTPUT"
 
   set_version:
     name: Set VERSION
@@ -116,7 +129,7 @@ jobs:
 
   publish_github_release:
     needs: [detect_changes, build, test]
-    if: ${{ github.event_name == 'push' && needs.detect_changes.outputs.code == 'true' }}
+    if: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish)) && needs.detect_changes.outputs.code == 'true' }}
     name: Publish to GitHub release
     runs-on: ubuntu-24.04
     permissions:
