@@ -1,3 +1,8 @@
+# Fork note (gardenlinux fork, kvm-capi only):
+# Builds and tests kvm-capi on every push to main and on PRs. Additionally,
+# on pushes to main the built images are published to the rolling
+# 'dev-latest' GitHub prerelease (see publish_github_release job below).
+# PRs never publish. No external secrets are required.
 name: dev
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-dev
@@ -108,4 +113,32 @@ jobs:
           fi
 
           echo "Build and test passed."
-          exit 0
+
+  publish_github_release:
+    needs: [detect_changes, build, test]
+    if: ${{ github.event_name == 'push' && needs.detect_changes.outputs.code == 'true' }}
+    name: Publish to GitHub release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.build.outputs.flavors_matrix || '{"include":[]}') }}
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # pin@v8.0.1
+        with:
+          name: build-${{ matrix.cname }}-${{ matrix.arch }}
+      - name: Upload to rolling GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: dev-latest
+        run: |
+          gh release create "$RELEASE_TAG" \
+            --title "Garden Linux dev build (${{ needs.build.outputs.version }}, commit ${{ github.sha }})" \
+            --target "${{ github.sha }}" \
+            --prerelease || true
+
+          for file in *.tar.gz; do
+            gh release upload "$RELEASE_TAG" "$file" --clobber
+          done
