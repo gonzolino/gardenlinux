@@ -20,7 +20,10 @@ jobs:
       VERSION: ""
     strategy:
       matrix:
-        arch: [amd64, arm64]
+        # Fork note (gardenlinux fork, kvm-capi only, amd64 only):
+        # limited to amd64; this job is a no-op anyway as long as the
+        # container flavor is not part of flavors.yaml
+        arch: [amd64]
     permissions:
       actions: write
     steps:

@@ -1,8 +1,9 @@
-# Fork note (gardenlinux fork, kvm-capi only):
+# Fork note (gardenlinux fork, kvm-capi only, amd64 only):
 # This flavors.yaml has been pruned to build/test/publish ONLY the kvm-capi
-# flavor. All upstream flavors (aws, azure, gcp, baremetal, container, bare-*,
-# ...) have been removed, so every `gl-flavors-parse` matrix used by the
-# GitHub workflows resolves to kvm-capi-{amd64,arm64} only.
+# flavor for amd64. All upstream flavors (aws, azure, gcp, baremetal,
+# container, bare-*, ...) and the arm64 build have been removed, so every
+# `gl-flavors-parse` matrix used by the GitHub workflows resolves to
+# kvm-capi-amd64 only.
 targets:
   - name: kvm
     category: hypervisor
@@ -10,13 +11,6 @@ targets:
       - features:
           - capi
         arch: amd64
-        build: true
-        test: true
-        test-platform: false
-        publish: true
-      - features:
-          - capi
-        arch: arm64
         build: true
         test: true
         test-platform: false
