@@ -82,14 +82,43 @@ jobs:
       id-token: write # TODO: 3215 elevated permissions for included workflow
       actions: write  # TODO: 3215 elevated permissions for included workflow
       packages: write # TODO: 3215 elevated permissions for included workflow
+  # Fork note (kvm-capi fork): generate the flavors matrix for the tests
+  # directly instead of consuming needs.build.outputs.flavors_matrix.
+  # Observed (2026-11-14): the nested workflow_call output
+  # build.yml -> dev.yml silently evaluated to an EMPTY string even though
+  # the identical value was non-empty INSIDE build.yml (the flavor build job
+  # matrix expanded correctly). needs.<reusable-caller-job>.outputs/result
+  # proved unreliable for us and for upstream (their "Build and test gate"
+  # passed despite failed test jobs). Generating the matrix here via a
+  # direct re-usable workflow call job uses the pattern that works.
+  test_flavors_matrix:
+    name: Generate flavors matrix for tests
+    uses: ./.github/workflows/build_flavors_matrix.yml
+    with:
+      flags: --exclude "bare-*" --no-arch --json-by-arch --build --test
+
+  # Fork note (kvm-capi fork): diagnostics helper — prints the outputs the
+  # build workflow exposes so that empty-matrix wiring issues are visible
+  # directly in the run log. Harmless; remove once the pipeline is stable.
+  debug_build_outputs:
+    name: Build outputs (diagnostics)
+    needs: [build, test_flavors_matrix]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "build result:            ${{ needs.build.result }}"
+          echo "flavors_matrix (nested): '${{ needs.build.outputs.flavors_matrix }}'"
+          echo "flavors_matrix (direct): '${{ needs.test_flavors_matrix.outputs.matrix }}'"
+          echo "version:                 '${{ needs.build.outputs.version }}'"
+
   test:
-    needs: build
+    needs: [build, test_flavors_matrix]
     if: ${{ success() || failure() }}
     name: Test
     uses: ./.github/workflows/tests.yml
     with:
-      flavors_matrix: ${{ needs.build.outputs.flavors_matrix }}
-      bare_flavors_matrix: ${{ needs.build.outputs.bare_flavors_matrix }}
+      flavors_matrix: ${{ needs.test_flavors_matrix.outputs.matrix }}
       test_types: "chroot,qemu,oci,bare"
     permissions:
       id-token: write # TODO: 3215 elevated permissions for included workflow
@@ -128,7 +157,7 @@ jobs:
           echo "Build and test passed."
 
   publish_github_release:
-    needs: [detect_changes, build, test]
+    needs: [detect_changes, build, test, test_flavors_matrix]
     if: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish)) && needs.detect_changes.outputs.code == 'true' }}
     name: Publish to GitHub release
     runs-on: ubuntu-24.04
@@ -136,7 +165,7 @@ jobs:
       contents: write
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.build.outputs.flavors_matrix || '{"include":[]}') }}
+      matrix: ${{ fromJson(needs.test_flavors_matrix.outputs.matrix || '{"include":[]}') }}
     steps:
       - name: Download build artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # pin@v8.0.1
