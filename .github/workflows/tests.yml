@@ -117,36 +117,39 @@ jobs:
                 key: "chroot",
                 outTests: "chroot_tests",
                 outMatrix: "chroot_test_flavors_matrix",
-                inputMatrix: ${{ inputs.flavors_matrix }},
-                supported: ${{ needs.chroot_test_flavors_supported_matrix.outputs.matrix }}
+                // Fork note: '|| {...}' fallbacks keep this JS syntactically
+                // valid when a matrix resolves to an empty string (happens in
+                // the kvm-capi fork which has no cloud/oci/bare flavors).
+                inputMatrix: ${{ inputs.flavors_matrix || '{"include":[]}' }},
+                supported: ${{ needs.chroot_test_flavors_supported_matrix.outputs.matrix || '{"include":[]}' }}
               },
               {
                 key: "qemu",
                 outTests: "qemu_tests",
                 outMatrix: "qemu_test_flavors_matrix",
-                inputMatrix: ${{ inputs.flavors_matrix }},
-                supported: ${{ needs.qemu_test_flavors_supported_matrix.outputs.matrix }}
+                inputMatrix: ${{ inputs.flavors_matrix || '{"include":[]}' }},
+                supported: ${{ needs.qemu_test_flavors_supported_matrix.outputs.matrix || '{"include":[]}' }}
               },
               {
                 key: "cloud",
                 outTests: "cloud_tests",
                 outMatrix: "cloud_test_flavors_matrix",
-                inputMatrix: ${{ inputs.flavors_matrix }},
-                supported: ${{ needs.cloud_test_flavors_supported_matrix.outputs.matrix }}
+                inputMatrix: ${{ inputs.flavors_matrix || '{"include":[]}' }},
+                supported: ${{ needs.cloud_test_flavors_supported_matrix.outputs.matrix || '{"include":[]}' }}
               },
               {
                 key: "oci",
                 outTests: "oci_flavors_tests",
                 outMatrix: "oci_flavors_matrix",
-                inputMatrix: ${{ inputs.flavors_matrix }},
-                supported: ${{ needs.oci_test_flavors_supported_matrix.outputs.matrix }}
+                inputMatrix: ${{ inputs.flavors_matrix || '{"include":[]}' }},
+                supported: ${{ needs.oci_test_flavors_supported_matrix.outputs.matrix || '{"include":[]}' }}
               },
               {
                 key: "bare",
                 outTests: "bare_flavors_tests",
                 outMatrix: "bare_flavors_matrix",
-                inputMatrix: ${{ inputs.bare_flavors_matrix }},
-                supported: ${{ needs.bare_flavors_supported_matrix.outputs.matrix }}
+                inputMatrix: ${{ inputs.bare_flavors_matrix || '{"include":[]}' }},
+                supported: ${{ needs.bare_flavors_supported_matrix.outputs.matrix || '{"include":[]}' }}
               }
             ];
             // `matrix:` and it's fromJson() evaluation cannot be skipped by setting the matrix to an empty string or array
