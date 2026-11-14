@@ -13,7 +13,9 @@ import pytest
 # Upstream's near-identical sibling test (disastig_00155) already gates on
 # "not capi"; this one was missed because upstream capi flavors are masked by
 # "not baremetal" anyway.
-@pytest.mark.feature("not container and not lima and not gardener and not baremetal and not capi")
+@pytest.mark.feature(
+    "not container and not lima and not gardener and not baremetal and not capi"
+)
 @pytest.mark.root(reason="required to verify PAM authentication enforcement")
 def test_session_lock_requires_reauthentication(lsm):
     """Verify 'selinux' appears in the active LSM list."""
