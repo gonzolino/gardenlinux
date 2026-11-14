@@ -127,8 +127,12 @@ def test_hostname_azure(shell):
 @pytest.mark.security_id(1127)
 @pytest.mark.root(reason="Required to query systemd units")
 @pytest.mark.booted(reason="firewall service check requires booted system")
+# Fork note (kvm-capi fork): also skip for capi flavors — the capi element
+# excludes the `firewall` feature, so no nftables runs. Upstream the only capi
+# flavors are metal-based and were already covered by "not metal"; kvm-capi is
+# the first non-metal capi flavor.
 @pytest.mark.feature(
-    "not gardener and not lima and not metal and not azure and not aws and not gcp and not gdch and not ali"
+    "not gardener and not lima and not metal and not azure and not aws and not gcp and not gdch and not ali and not capi"
 )
 def test_that_nftables_firewall_service_is_running(systemd: Systemd):
     """
